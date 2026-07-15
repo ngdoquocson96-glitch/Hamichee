@@ -16,6 +16,7 @@ export interface Profile {
   email: string | null;
   role: Role;
   department: string | null;
+  is_active: boolean;
 }
 
 export interface Task {
