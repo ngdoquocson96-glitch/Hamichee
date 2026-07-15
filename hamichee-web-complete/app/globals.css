@@ -1,0 +1,105 @@
+:root {
+  --green: #0e8a4b;
+  --green-dark: #086737;
+  --orange: #f6a51a;
+  --cream: #fffaf0;
+  --ink: #1e2b23;
+  --muted: #6b756e;
+  --line: #e7e1d5;
+  --white: #ffffff;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: var(--cream); color: var(--ink); }
+body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+button, input, select, textarea { font: inherit; }
+
+.center { min-height: 100vh; display: grid; place-items: center; }
+.loginShell { min-height: 100vh; display: grid; place-items: center; padding: 24px; background:
+  radial-gradient(circle at top left, rgba(246,165,26,.18), transparent 32%),
+  radial-gradient(circle at bottom right, rgba(14,138,75,.16), transparent 35%),
+  var(--cream);
+}
+.loginCard { width: min(440px, 100%); background: var(--white); border: 1px solid var(--line); border-radius: 28px; padding: 28px; box-shadow: 0 20px 60px rgba(40,55,45,.12); }
+.brandBlock { text-align: center; margin-bottom: 20px; }
+.brandLogo { width: 210px; height: auto; border-radius: 18px; }
+.brandBlock p { color: var(--muted); margin-top: 4px; }
+
+.formStack { display: grid; gap: 14px; }
+.formStack label { display: grid; gap: 7px; font-weight: 700; }
+input, select, textarea {
+  width: 100%; border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px;
+  background: #fff; color: var(--ink); outline: none;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(14,138,75,.1); }
+textarea { min-height: 96px; resize: vertical; }
+
+.primaryButton { border: 0; background: var(--green); color: #fff; padding: 12px 18px; border-radius: 14px; font-weight: 800; cursor: pointer; }
+.primaryButton:hover { background: var(--green-dark); }
+.message, .notice { color: #7c4c00; background: #fff3d6; border: 1px solid #f2d498; padding: 10px 12px; border-radius: 12px; }
+
+.appShell { min-height: 100vh; }
+.topbar {
+  display: flex; justify-content: space-between; align-items: center; gap: 20px;
+  padding: 14px 24px; background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10;
+}
+.brandMini { display: flex; align-items: center; gap: 12px; }
+.brandMini img { border-radius: 12px; object-fit: cover; }
+.brandMini strong { display: block; color: var(--green); font-size: 1.15rem; letter-spacing: .04em; }
+.brandMini span { color: var(--muted); font-size: .88rem; }
+.headerActions { display: flex; align-items: center; gap: 8px; }
+.userChip { background: #f4f7f4; border: 1px solid var(--line); padding: 8px 12px; border-radius: 999px; }
+.iconButton { border: 1px solid var(--line); background: #fff; border-radius: 12px; width: 40px; height: 40px; display: grid; place-items: center; cursor: pointer; }
+
+.tabs { display: flex; gap: 8px; padding: 12px 24px; background: #fff; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tabs button { border: 0; background: transparent; padding: 10px 14px; border-radius: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; white-space: nowrap; }
+.tabs button.active { background: #e9f5ee; color: var(--green-dark); font-weight: 800; }
+
+.content { width: min(1180px, calc(100% - 32px)); margin: 24px auto 60px; display: grid; gap: 20px; }
+.statsGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.statCard { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 18px; }
+.statCard span { color: var(--muted); }
+.statCard strong { display: block; color: var(--green); font-size: 2rem; margin-top: 6px; }
+
+.panel { background: #fff; border: 1px solid var(--line); border-radius: 22px; padding: 20px; box-shadow: 0 12px 30px rgba(40,55,45,.06); }
+.panel.narrow { max-width: 720px; }
+.panel h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; color: var(--green-dark); }
+
+.taskForm { display: grid; grid-template-columns: 2fr 1.2fr 1fr 1.2fr; gap: 12px; }
+.taskForm textarea { grid-column: 1 / -2; }
+.taskForm button { align-self: stretch; }
+
+.taskList { display: grid; gap: 14px; }
+.taskCard { border: 1px solid var(--line); border-radius: 18px; padding: 16px; background: #fffdf8; }
+.taskTop { display: flex; justify-content: space-between; gap: 16px; }
+.taskTop h3 { margin: 0 0 6px; }
+.taskTop p { margin: 0; color: var(--muted); }
+.status { font-size: .8rem; padding: 6px 10px; border-radius: 999px; height: fit-content; font-weight: 800; background: #ececec; }
+.status.in_progress { background: #e6f0ff; color: #2458a6; }
+.status.blocked { background: #ffe6e6; color: #a52a2a; }
+.status.pending_review { background: #fff1cc; color: #8a5c00; }
+.status.completed { background: #e5f6e9; color: #1d7a38; }
+.status.rework { background: #f6e9ff; color: #6e2f91; }
+
+.taskMeta { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 14px; color: var(--muted); font-size: .9rem; }
+.reportBox { margin-top: 12px; padding: 10px 12px; background: #f7f5ef; border-radius: 12px; }
+.taskActions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.taskActions button { border: 1px solid var(--line); background: #fff; padding: 8px 12px; border-radius: 10px; cursor: pointer; }
+.taskActions .approve { background: var(--green); color: #fff; border-color: var(--green); }
+.taskActions .reject { background: #fff0ef; color: #9d2d24; border-color: #f0c0bc; }
+
+.peopleTable { display: grid; gap: 10px; }
+.personRow { display: grid; grid-template-columns: 1.3fr 1.6fr .6fr; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.roleBadge { text-transform: capitalize; background: #eef6f1; color: var(--green-dark); width: fit-content; padding: 5px 9px; border-radius: 999px; }
+
+@media (max-width: 800px) {
+  .topbar { padding: 12px 14px; }
+  .userChip { display: none; }
+  .tabs { padding: 10px 14px; }
+  .content { width: min(100% - 20px, 1180px); margin-top: 14px; }
+  .statsGrid { grid-template-columns: repeat(2, 1fr); }
+  .taskForm { grid-template-columns: 1fr; }
+  .taskForm textarea { grid-column: auto; }
+  .taskTop { flex-direction: column; }
+  .personRow { grid-template-columns: 1fr; }
+}
