@@ -16,7 +16,7 @@ Tài khoản Supabase cũ được tạo sớm nhất sẽ là Admin ban đầu.
 
 ## Vercel
 
-Project `hamichee-ordering` dùng Root Directory là `ordering-app`.
+Project `hamichee-ordering` dùng Root Directory là `ordering-app` và Framework Preset là `Next.js`.
 Ba biến Supabase phía trên phải được bật cho cả `Production and Preview` để PR Preview có thể build và đăng nhập.
 
 ## Kiểm tra
