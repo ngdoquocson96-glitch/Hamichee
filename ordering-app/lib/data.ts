@@ -2,7 +2,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createAdminClient, createUserClient } from "./supabase/server";
 import { fallbackMenu } from "./menu-seed";
-import type { CustomerAddress, CustomerProfile, LoyaltyTier, MenuCategory, Order, OrderItem, Product } from "./types";
+import type { CustomerAddress, CustomerProfile, DeliveryEvent, LoyaltyTier, MenuCategory, Order, OrderItem, Product } from "./types";
 
 export const currentUser = cache(async () => {
   const supabase = await createUserClient();
@@ -29,6 +29,14 @@ export async function requireAdmin() {
   const admin = createAdminClient();
   const { data } = await admin.from("ordering_profiles").select("*").eq("id", user.id).maybeSingle();
   if (!data || data.role !== "admin") redirect("/");
+  return { user, profile: data as CustomerProfile, admin };
+}
+
+export async function requireShipper() {
+  const user = await requireUser("/shipper");
+  const admin = createAdminClient();
+  const { data } = await admin.from("ordering_profiles").select("*").eq("id", user.id).maybeSingle();
+  if (!data || data.role !== "shipper") redirect(data?.role === "admin" ? "/admin" : "/");
   return { user, profile: data as CustomerProfile, admin };
 }
 
@@ -84,19 +92,29 @@ export async function orderForCustomer(code: string, customerId: string) {
   const admin = createAdminClient();
   const { data: order } = await admin.from("ordering_orders").select("*").eq("code", code).eq("customer_id", customerId).maybeSingle();
   if (!order) return null;
-  const { data: items } = await admin.from("ordering_order_items").select("*").eq("order_id", order.id).order("created_at");
-  return { order: order as Order, items: (items ?? []) as OrderItem[] };
+  const [{ data: items }, { data: shipper }] = await Promise.all([
+    admin.from("ordering_order_items").select("*").eq("order_id", order.id).order("created_at"),
+    order.shipper_id ? admin.from("ordering_profiles").select("id,full_name,phone").eq("id", order.shipper_id).maybeSingle() : Promise.resolve({ data: null }),
+  ]);
+  let proofUrl: string | null = null;
+  if (order.proof_image_path) {
+    const { data } = await admin.storage.from("ordering-delivery-proof").createSignedUrl(order.proof_image_path, 3600);
+    proofUrl = data?.signedUrl ?? null;
+  }
+  return { order: order as Order, items: (items ?? []) as OrderItem[], shipper, proofUrl };
 }
 
 export async function adminDashboardData() {
   const { admin } = await requireAdmin();
   const since = new Date();
   since.setHours(0, 0, 0, 0);
-  const [{ data: orders }, { data: orderItems }, { data: products }, { data: customers }] = await Promise.all([
+  const [{ data: orders }, { data: orderItems }, { data: products }, { data: customers }, { data: shippers }, { data: deliveryEvents }] = await Promise.all([
     admin.from("ordering_orders").select("*").order("created_at", { ascending: false }).limit(200),
     admin.from("ordering_order_items").select("*").order("created_at"),
     admin.from("ordering_products").select("*").order("sort_order"),
     admin.from("ordering_profiles").select("*").eq("role", "customer").order("created_at", { ascending: false }),
+    admin.from("ordering_profiles").select("*").eq("role", "shipper").order("full_name"),
+    admin.from("ordering_delivery_events").select("*").order("created_at", { ascending: false }).limit(500),
   ]);
   const allOrders = (orders ?? []) as Order[];
   return {
@@ -104,7 +122,30 @@ export async function adminDashboardData() {
     orderItems: (orderItems ?? []) as OrderItem[],
     products: (products ?? []) as Product[],
     customers: (customers ?? []) as CustomerProfile[],
+    shippers: (shippers ?? []) as CustomerProfile[],
+    deliveryEvents: (deliveryEvents ?? []) as DeliveryEvent[],
     todayOrders: allOrders.filter((order) => new Date(order.created_at) >= since).length,
     todayRevenue: allOrders.filter((order) => new Date(order.created_at) >= since && order.status === "completed").reduce((sum, order) => sum + order.total, 0),
   };
+}
+
+export async function adminShipperData() {
+  const { admin } = await requireAdmin();
+  const [{ data: profiles }, { data: orders }] = await Promise.all([
+    admin.from("ordering_profiles").select("*").neq("role", "admin").order("role", { ascending: false }).order("full_name"),
+    admin.from("ordering_orders").select("id,shipper_id,shipping_status,cod_collected,delivered_at").not("shipper_id", "is", null),
+  ]);
+  return { profiles: (profiles ?? []) as CustomerProfile[], orders: (orders ?? []) as Order[] };
+}
+
+export async function shipperDashboardData() {
+  const { user, profile, admin } = await requireShipper();
+  const { data: orders } = await admin.from("ordering_orders").select("*").eq("shipper_id", user.id).order("created_at", { ascending: false }).limit(100);
+  const typedOrders = (orders ?? []) as Order[];
+  const ids = typedOrders.map((order) => order.id);
+  const [{ data: items }, { data: events }] = ids.length ? await Promise.all([
+    admin.from("ordering_order_items").select("*").in("order_id", ids).order("created_at"),
+    admin.from("ordering_delivery_events").select("*").in("order_id", ids).order("created_at", { ascending: false }),
+  ]) : [{ data: [] }, { data: [] }];
+  return { profile, orders: typedOrders, items: (items ?? []) as OrderItem[], events: (events ?? []) as DeliveryEvent[] };
 }

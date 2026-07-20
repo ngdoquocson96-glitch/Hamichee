@@ -1,4 +1,4 @@
-import type { LoyaltyTier, OrderStatus, PaymentStatus } from "./types";
+import type { LoyaltyTier, OrderStatus, PaymentStatus, ShippingStatus } from "./types";
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   pending_confirmation: "Chờ xác nhận",
@@ -16,6 +16,27 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   paid: "Đã thanh toán",
   unpaid: "Chưa thanh toán",
   rejected: "Từ chối xác nhận",
+};
+
+export const SHIPPING_STATUS_LABELS: Record<ShippingStatus, string> = {
+  unassigned: "Chưa phân shipper",
+  assigned: "Đã phân shipper",
+  accepted: "Shipper đã nhận đơn",
+  picked_up: "Đã lấy hàng",
+  delivering: "Đang giao",
+  delivered: "Giao thành công",
+  failed: "Giao chưa thành công",
+};
+
+export const DELIVERY_EVENT_LABELS: Record<string, string> = {
+  assigned: "Admin phân đơn",
+  unassigned: "Admin thu hồi đơn",
+  accept: "Shipper nhận đơn",
+  reject: "Shipper từ chối",
+  picked_up: "Đã lấy hàng",
+  delivering: "Bắt đầu giao",
+  delivered: "Giao thành công",
+  failed: "Giao chưa thành công",
 };
 
 export function formatCurrency(value: number) {

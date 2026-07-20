@@ -22,7 +22,15 @@ export function AuthForm() {
     if (mode === "login") {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setMessage("Email hoặc mật khẩu chưa đúng.");
-      else { router.replace(searchParams.get("next") || "/profile"); router.refresh(); }
+      else {
+        let target = searchParams.get("next");
+        if (!target) {
+          const { data: { user } } = await supabase.auth.getUser();
+          const { data: profile } = user ? await supabase.from("ordering_profiles").select("role").eq("id", user.id).maybeSingle() : { data: null };
+          target = profile?.role === "admin" ? "/admin" : profile?.role === "shipper" ? "/shipper" : "/profile";
+        }
+        router.replace(target); router.refresh();
+      }
     } else {
       const fullName = String(form.get("fullName") ?? "").trim();
       const phone = String(form.get("phone") ?? "").trim();
