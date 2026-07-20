@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { createAdminClient, createUserClient } from "@/lib/supabase/server";
-import { requireAdmin } from "@/lib/data";
+import { requireAdmin, requireShipper } from "@/lib/data";
 import { pointsForOrder, tierForPoints } from "@/lib/format";
-import type { CartItem, LoyaltyTier, OrderStatus, PaymentStatus, ProductVariant } from "@/lib/types";
+import { canTransitionShipping } from "@/lib/shipping";
+import type { CartItem, LoyaltyTier, OrderStatus, PaymentStatus, ProductVariant, ShippingAction, ShippingStatus, UserRole } from "@/lib/types";
 
 const ORDER_STATUSES: OrderStatus[] = ["pending_confirmation", "confirmed", "preparing", "delivering", "ready_for_pickup", "completed", "cancelled"];
 const PAYMENT_STATUSES: PaymentStatus[] = ["pending", "reported", "paid", "unpaid", "rejected"];
@@ -19,6 +20,10 @@ function cleanPhone(phone: string) {
 
 function validPhone(phone: string) {
   return /^(0\d{9}|\+84\d{9})$/.test(cleanPhone(phone));
+}
+
+function validEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 async function actionUser() {
@@ -204,6 +209,116 @@ export async function updateOrderAction(formData: FormData) {
   if (error) throw new Error(error.message);
   revalidatePath("/admin");
   revalidatePath("/admin/orders");
+}
+
+export async function createShipperAction(formData: FormData) {
+  try {
+    const { admin } = await requireAdmin();
+    const email = value(formData, "email", 200).toLowerCase();
+    const password = value(formData, "password", 100);
+    const fullName = value(formData, "fullName", 120);
+    const phone = cleanPhone(value(formData, "phone", 20));
+    if (!validEmail(email) || password.length < 8 || !fullName || !validPhone(phone)) throw new Error("Thông tin tài khoản shipper chưa hợp lệ");
+    const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: fullName, phone } });
+    if (error || !data.user) throw new Error(error?.message ?? "Không thể tạo tài khoản shipper");
+    const { error: profileError } = await admin.from("ordering_profiles").update({ full_name: fullName, phone, role: "shipper" }).eq("id", data.user.id);
+    if (profileError) {
+      await admin.auth.admin.deleteUser(data.user.id);
+      throw new Error(profileError.message);
+    }
+    revalidatePath("/admin/shippers");
+    return { ok: true as const };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : "Không thể tạo tài khoản shipper" };
+  }
+}
+
+export async function updateUserRoleAction(formData: FormData) {
+  try {
+    const { admin } = await requireAdmin();
+    const id = value(formData, "id", 80);
+    const role = value(formData, "role", 20) as UserRole;
+    if (!id || !["customer", "shipper"].includes(role)) throw new Error("Vai trò không hợp lệ");
+    if (role === "customer") {
+      const { count } = await admin.from("ordering_orders").select("id", { count: "exact", head: true }).eq("shipper_id", id).in("shipping_status", ["assigned", "accepted", "picked_up", "delivering"]);
+      if (count) throw new Error("Shipper còn đơn đang giao, chưa thể chuyển vai trò");
+    }
+    const { error } = await admin.from("ordering_profiles").update({ role }).eq("id", id).neq("role", "admin");
+    if (error) throw new Error(error.message);
+    revalidatePath("/admin/shippers");
+    revalidatePath("/admin/orders");
+    return { ok: true as const };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : "Không thể đổi vai trò" };
+  }
+}
+
+export async function assignShipperAction(formData: FormData) {
+  try {
+    const { user, admin } = await requireAdmin();
+    const orderId = value(formData, "orderId", 80);
+    const shipperId = value(formData, "shipperId", 80);
+    const codExpected = Math.max(0, Math.floor(Number(formData.get("codExpected") ?? 0)));
+    const { data: order } = await admin.from("ordering_orders").select("id,code,status,fulfilment_method,shipper_id").eq("id", orderId).maybeSingle();
+    if (!order || order.fulfilment_method !== "delivery" || ["completed", "cancelled"].includes(order.status)) throw new Error("Đơn không thể phân giao");
+    if (!shipperId) {
+      const { error } = await admin.from("ordering_orders").update({ shipper_id: null, shipping_status: "unassigned", assigned_at: null, status: order.status === "delivering" ? "confirmed" : order.status }).eq("id", orderId);
+      if (error) throw new Error(error.message);
+      await admin.from("ordering_delivery_events").insert({ order_id: orderId, shipper_id: order.shipper_id, actor_id: user.id, event_type: "unassigned", note: "Admin thu hồi phân công" });
+    } else {
+      const { data: shipper } = await admin.from("ordering_profiles").select("id").eq("id", shipperId).eq("role", "shipper").maybeSingle();
+      if (!shipper) throw new Error("Tài khoản shipper không hợp lệ");
+      const { error } = await admin.from("ordering_orders").update({ shipper_id: shipperId, shipping_status: "assigned", assigned_at: new Date().toISOString(), cod_expected: codExpected, cod_collected: 0, proof_image_path: null, delivered_at: null, shipping_note: "", status: order.status === "pending_confirmation" ? "confirmed" : order.status }).eq("id", orderId);
+      if (error) throw new Error(error.message);
+      await admin.from("ordering_delivery_events").insert({ order_id: orderId, shipper_id: shipperId, actor_id: user.id, event_type: "assigned", note: `Phân đơn ${order.code}` });
+    }
+    revalidatePath("/admin/orders");
+    revalidatePath("/shipper");
+    return { ok: true as const };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : "Không thể phân shipper" };
+  }
+}
+
+export async function updateDeliveryAction(formData: FormData) {
+  try {
+    const { user, admin } = await requireShipper();
+    const orderId = value(formData, "orderId", 80);
+    const action = value(formData, "deliveryAction", 30) as ShippingAction;
+    const note = value(formData, "note", 500);
+    const codCollected = Math.max(0, Math.floor(Number(formData.get("codCollected") ?? 0)));
+    const { data: order } = await admin.from("ordering_orders").select("*").eq("id", orderId).eq("shipper_id", user.id).maybeSingle();
+    if (!order || !canTransitionShipping(order.shipping_status as ShippingStatus, action)) throw new Error("Bước giao hàng không hợp lệ hoặc đơn đã được cập nhật");
+    if (["reject", "failed"].includes(action) && !note) throw new Error("Vui lòng ghi rõ lý do");
+
+    const patch: Record<string, unknown> = { shipping_note: note };
+    let proofPath: string | null = null;
+    if (action === "accept") patch.shipping_status = "accepted";
+    if (action === "reject") Object.assign(patch, { shipper_id: null, shipping_status: "unassigned", assigned_at: null, status: "confirmed" });
+    if (action === "picked_up") Object.assign(patch, { shipping_status: "picked_up", status: "delivering" });
+    if (action === "delivering") Object.assign(patch, { shipping_status: "delivering", status: "delivering" });
+    if (action === "failed") Object.assign(patch, { shipping_status: "failed", status: "delivering" });
+    if (action === "delivered") {
+      const file = formData.get("proof");
+      if (!(file instanceof File) || file.size < 1) throw new Error("Cần chụp ảnh xác nhận giao hàng");
+      if (file.size > 5 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp"].includes(file.type)) throw new Error("Ảnh xác nhận phải là JPG, PNG hoặc WebP và nhỏ hơn 5 MB");
+      const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+      proofPath = `${user.id}/${order.code}-${crypto.randomUUID()}.${extension}`;
+      const { error: uploadError } = await admin.storage.from("ordering-delivery-proof").upload(proofPath, file, { contentType: file.type, upsert: false });
+      if (uploadError) throw new Error(uploadError.message);
+      Object.assign(patch, { shipping_status: "delivered", status: "completed", cod_collected: codCollected, proof_image_path: proofPath, delivered_at: new Date().toISOString() });
+      if (Number(order.cod_expected) > 0) patch.payment_status = codCollected >= Number(order.cod_expected) ? "paid" : "unpaid";
+    }
+    const { error } = await admin.from("ordering_orders").update(patch).eq("id", orderId).eq("shipper_id", user.id);
+    if (error) throw new Error(error.message);
+    await admin.from("ordering_delivery_events").insert({ order_id: orderId, shipper_id: user.id, actor_id: user.id, event_type: action, note, cod_collected: action === "delivered" ? codCollected : 0, proof_image_path: proofPath });
+    revalidatePath("/shipper");
+    revalidatePath("/admin/orders");
+    revalidatePath(`/orders/${order.code}`);
+    return { ok: true as const };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : "Không thể cập nhật giao hàng" };
+  }
 }
 
 export async function updateProductAction(formData: FormData) {

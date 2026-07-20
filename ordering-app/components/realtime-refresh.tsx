@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import { Bell, BellRing } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
-export function RealtimeRefresh({ customerId, admin = false }: { customerId?: string; admin?: boolean }) {
+export function RealtimeRefresh({ customerId, shipperId, admin = false }: { customerId?: string; shipperId?: string; admin?: boolean }) {
   const router = useRouter();
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
-    const channel = supabase.channel(admin ? "admin-ordering-live" : `customer-ordering-${customerId}`);
+    const channel = supabase.channel(admin ? "admin-ordering-live" : shipperId ? `shipper-ordering-${shipperId}` : `customer-ordering-${customerId}`);
     if (admin) {
       channel.on("postgres_changes", { event: "INSERT", schema: "public", table: "ordering_orders" }, (payload: { new: Record<string, unknown> }) => {
         setMessage(`Có đơn mới ${(payload.new as { code?: string }).code ?? ""}`);
@@ -29,6 +29,13 @@ export function RealtimeRefresh({ customerId, admin = false }: { customerId?: st
         }
         router.refresh();
       });
+    } else if (shipperId) {
+      channel.on("postgres_changes", { event: "*", schema: "public", table: "ordering_orders", filter: `shipper_id=eq.${shipperId}` }, (payload: { new: Record<string, unknown> }) => {
+        const row = payload.new as { code?: string };
+        setMessage(`Đơn ${row.code ?? "giao hàng"} vừa được cập nhật`);
+        if (Notification.permission === "granted") new Notification("HAMICHEE Giao hàng", { body: `Đơn ${row.code ?? "mới"} vừa được phân hoặc cập nhật.` });
+        router.refresh();
+      });
     } else if (customerId) {
       channel.on("postgres_changes", { event: "*", schema: "public", table: "ordering_orders", filter: `customer_id=eq.${customerId}` }, (payload: { new: Record<string, unknown> }) => {
         const row = payload.new as { code?: string };
@@ -43,14 +50,14 @@ export function RealtimeRefresh({ customerId, admin = false }: { customerId?: st
     }
     channel.subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [admin, customerId, router, soundEnabled]);
+  }, [admin, customerId, router, shipperId, soundEnabled]);
 
   if (admin) return <div className="liveControls">
     <button type="button" className={soundEnabled ? "enabled" : ""} onClick={() => setSoundEnabled((value) => !value)}>{soundEnabled ? <BellRing size={18} /> : <Bell size={18} />}{soundEnabled ? "Âm báo đang bật" : "Bật âm báo đơn mới"}</button>
     {message ? <span className="liveMessage">{message}</span> : null}
   </div>;
 
-  if (customerId) return <div className="notificationControls">
+  if (customerId || shipperId) return <div className="notificationControls">
     <button type="button" onClick={async () => { if ("Notification" in window) await Notification.requestPermission(); }}><Bell size={17} /> Bật thông báo trên máy</button>
     {message ? <span>{message}</span> : null}
   </div>;

@@ -16,7 +16,7 @@ const links = [
 export function BottomNav() {
   const pathname = usePathname();
   const { itemCount } = useCart();
-  if (pathname.startsWith("/admin") || pathname.startsWith("/auth")) return null;
+  if (pathname.startsWith("/admin") || pathname.startsWith("/shipper") || pathname.startsWith("/auth")) return null;
   return <nav className="bottomNav" aria-label="Điều hướng chính">
     {links.map(({ href, label, Icon }) => {
       const active = href === "/" ? pathname === "/" : pathname.startsWith(href);

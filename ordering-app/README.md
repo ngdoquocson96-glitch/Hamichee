@@ -2,6 +2,13 @@
 
 App đặt món và tích điểm dùng Next.js + Supabase. App nằm trong thư mục riêng để cùng repository với app giao việc nhưng không trộn source.
 
+## Giao hàng
+
+- Admin tạo/cấp quyền shipper tại `/admin/shippers` và phân đơn tại `/admin/orders`.
+- Shipper đăng nhập tại `/shipper`, gọi khách, mở Google Maps và cập nhật từng bước giao.
+- Khi giao thành công, shipper phải chụp ảnh xác nhận; ảnh được lưu trong bucket riêng tư `ordering-delivery-proof`.
+- COD dự kiến/thực thu, lịch sử giao và trạng thái được đồng bộ realtime cho Admin và khách.
+
 ## Biến môi trường
 
 - `NEXT_PUBLIC_SUPABASE_URL`
@@ -10,7 +17,7 @@ App đặt món và tích điểm dùng Next.js + Supabase. App nằm trong thư
 
 ## Khởi tạo database
 
-Mở Supabase → SQL Editor và chạy các file trong `supabase/migrations` theo thứ tự. Migration có thể chạy lại an toàn; dữ liệu menu/điểm hiện có không bị ghi đè.
+Mở Supabase → SQL Editor và chạy các file trong `supabase/migrations` theo thứ tự. Với hệ thống hiện tại, chạy thêm `003_shipper_module.sql`. Migration có thể chạy lại an toàn; dữ liệu menu/điểm hiện có không bị ghi đè.
 
 Tài khoản Supabase cũ được tạo sớm nhất sẽ là Admin ban đầu. Khách đăng ký mới luôn có vai trò `customer`.
 
