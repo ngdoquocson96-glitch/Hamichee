@@ -273,10 +273,10 @@ values('ordering-menu','ordering-menu',true,4194304,array['image/jpeg','image/pn
 on conflict(id) do update set public=true,file_size_limit=excluded.file_size_limit,allowed_mime_types=excluded.allowed_mime_types;
 
 insert into public.ordering_loyalty_tiers(id,name,min_points,discount_percent,color,active) values
-('member','Thành viên',0,0,'#6b756e',true),
-('silver','Bạc',100,3,'#8d99a6',true),
-('gold','Vàng',300,5,'#d99b16',true),
-('diamond','Kim cương',600,8,'#008ba3',true)
+('member','Chạm',0,0,'#6b756e',true),
+('silver','Ghiền',100,3,'#8d99a6',true),
+('gold','Phê',300,5,'#d99b16',true),
+('diamond','Đỉnh',600,8,'#008ba3',true)
 on conflict(id) do nothing;
 
 insert into public.ordering_categories(id,name,sort_order,image_position,active) values

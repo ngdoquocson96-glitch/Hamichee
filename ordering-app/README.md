@@ -10,7 +10,7 @@ App đặt món và tích điểm dùng Next.js + Supabase. App nằm trong thư
 
 ## Khởi tạo database
 
-Mở Supabase → SQL Editor và chạy toàn bộ `supabase/migrations/001_ordering_v2.sql` đúng một lần. Migration có thể chạy lại an toàn; dữ liệu menu/điểm hiện có không bị ghi đè.
+Mở Supabase → SQL Editor và chạy các file trong `supabase/migrations` theo thứ tự. Migration có thể chạy lại an toàn; dữ liệu menu/điểm hiện có không bị ghi đè.
 
 Tài khoản Supabase cũ được tạo sớm nhất sẽ là Admin ban đầu. Khách đăng ký mới luôn có vai trò `customer`.
 

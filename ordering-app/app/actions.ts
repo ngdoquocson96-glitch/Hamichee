@@ -250,10 +250,13 @@ export async function updateCustomerCrmAction(formData: FormData) {
 export async function updateTierAction(formData: FormData) {
   const { admin } = await requireAdmin();
   const id = value(formData, "id", 80);
+  const name = value(formData, "name", 40);
   const minPoints = Math.max(0, Math.floor(Number(formData.get("minPoints") ?? 0)));
   const discountPercent = Math.max(0, Math.min(30, Number(formData.get("discountPercent") ?? 0)));
-  const { error } = await admin.from("ordering_loyalty_tiers").update({ min_points: minPoints, discount_percent: discountPercent }).eq("id", id);
+  if (!name) throw new Error("Tên cấp bậc không được để trống");
+  const { error } = await admin.from("ordering_loyalty_tiers").update({ name, min_points: minPoints, discount_percent: discountPercent }).eq("id", id);
   if (error) throw new Error(error.message);
+  revalidatePath("/");
   revalidatePath("/member");
   revalidatePath("/admin/customers");
 }
